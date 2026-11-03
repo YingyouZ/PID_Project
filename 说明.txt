@@ -1,0 +1,3 @@
+查看代码可点击PID_Project.gprj和
+esp32_extension→offline_link→PID_Link.gprj。
+.fs文件可直接烧录，但中心角度需物理设置为1991（1856+135，利用高云提供的接口驱动参考案例测试工具）

@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>摆杆控制器</title>
+<style>
+:root{
+  --bg:#0b0f14; --panel:#131a23; --line:#243040; --txt:#e8eef6; --dim:#8fa1b5;
+  --ok:#35c98a; --warn:#ffb020; --err:#ff5c5c; --acc:#4da3ff; --pwm:#ff9f43;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg);color:var(--txt);
+  font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  overflow-x:hidden;
+}
+.wrap{max-width:820px;margin:0 auto;padding:10px 10px 24px}
+header{display:flex;align-items:center;gap:8px;margin:4px 0 10px}
+header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.5px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--err);flex:0 0 auto;box-shadow:0 0 0 3px rgba(255,92,92,.15)}
+.dot.on{background:var(--ok);box-shadow:0 0 0 3px rgba(53,201,138,.18)}
+.dot.wait{background:var(--warn);box-shadow:0 0 0 3px rgba(255,176,32,.18)}
+#connTxt{font-size:12px;color:var(--dim);margin-left:2px}
+.spacer{flex:1}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px}
+#plot{width:100%;height:240px;display:block;border-radius:10px;background:#0e141b;touch-action:pan-y}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--dim);margin-top:8px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+.grid-stat{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat{background:#0e141b;border:1px solid var(--line);border-radius:10px;padding:7px 8px}
+.stat b{display:block;font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+.stat span{font-size:10px;color:var(--dim);letter-spacing:.4px}
+.row{display:flex;gap:8px;align-items:center;margin-top:9px}
+.row:first-child{margin-top:0}
+.row label{width:76px;color:var(--dim);font-size:12px;flex:0 0 auto}
+.row .val{width:56px;text-align:right;font-variant-numeric:tabular-nums;color:var(--txt);font-size:13px}
+input[type=range]{-webkit-appearance:none;flex:1;height:28px;background:transparent}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:#1d2733}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;
+  background:var(--acc);margin-top:-10px;border:2px solid #0b0f14;box-shadow:0 0 0 1px #2b4a70}
+input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:#1d2733}
+input[type=range]::-moz-range-thumb{width:24px;height:24px;border:2px solid #0b0f14;border-radius:50%;background:var(--acc)}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+button{
+  font:inherit;font-weight:600;color:var(--txt);background:#1b2534;border:1px solid var(--line);
+  border-radius:12px;padding:13px 10px;min-height:48px;transition:transform .05s,background .15s;
+}
+button:active{transform:scale(.975)}
+button.primary{background:linear-gradient(180deg,#1f7a52,#166241);border-color:#1f7a52}
+button.danger{background:linear-gradient(180deg,#8c2626,#6d1c1c);border-color:#8c2626}
+button.ghost{background:#151d28}
+button.on{outline:2px solid var(--acc);outline-offset:-2px}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:9px}
+.seg button{padding:10px 4px;min-height:42px;font-size:13px}
+h2{font-size:12px;color:var(--dim);margin:0 0 8px;font-weight:600;letter-spacing:.8px}
+.hint{font-size:11px;color:var(--dim);margin-top:8px;line-height:1.5}
+.hint code{background:#0e141b;padding:1px 5px;border-radius:4px;border:1px solid var(--line)}
+.badge{font-size:10px;padding:2px 7px;border-radius:20px;background:#202b3a;color:var(--dim)}
+.badge.err{background:rgba(255,92,92,.15);color:var(--err)}
+.badge.ok{background:rgba(53,201,138,.15);color:var(--ok)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="dot" id="connDot"></span>
+    <h1>摆杆控制器</h1>
+    <span id="connTxt">未连接</span>
+    <span class="spacer"></span>
+    <span class="badge" id="fpsBadge">-- fps</span>
+  </header>
+
+  <div class="card">
+    <canvas id="plot"></canvas>
+    <div class="legend">
+      <span><i style="background:#35c98a"></i>角度</span>
+      <span><i style="background:#4da3ff"></i>目标</span>
+      <span><i style="background:#ff9f43"></i>PWM（右轴）</span>
+      <span><i style="background:#2a3a4d"></i>安全窗口</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="grid-stat">
+      <div class="stat"><b id="sAngle">--</b><span>角度</span></div>
+      <div class="stat"><b id="sTarget">--</b><span>目标</span></div>
+      <div class="stat"><b id="sPwm">--</b><span>PWM</span></div>
+      <div class="stat"><b id="sState">--</b><span>状态</span></div>
+    </div>
+    <div class="grid-stat" style="margin-top:8px;grid-template-columns:repeat(4,1fr)">
+      <div class="stat"><b id="sSpeed">--</b><span>速度/ms</span></div>
+      <div class="stat"><b id="sLoc">--</b><span>位置</span></div>
+      <div class="stat"><b id="sRtt">--</b><span>RTT ms</span></div>
+      <div class="stat"><b id="sDrop">0</b><span>丢帧</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>运行控制</h2>
+    <div class="btns">
+      <button class="primary" id="btnStart">启动</button>
+      <button class="danger" id="btnStop">停止 / 急停</button>
+    </div>
+    <div class="seg" id="modeSeg">
+      <button data-mode="1">自动起摆</button>
+      <button data-mode="2">角度保持</button>
+      <button data-mode="3">手动 PWM</button>
+      <button data-mode="0">输出关断</button>
+    </div>
+  </div>
+
+  <div class="card" id="holdBox" hidden>
+    <h2>角度目标（HOLD）</h2>
+    <div class="row">
+      <label>目标</label>
+      <input type="range" id="angleSlider" min="1400" max="2300" step="10" value="1856">
+      <span class="val" id="angleVal">1856</span>
+    </div>
+    <div class="btns" style="margin-top:8px">
+      <button class="ghost" id="btnAngleCenter">回中 1856</button>
+      <button class="ghost" id="btnAngleApply">下发目标</button>
+    </div>
+  </div>
+
+  <div class="card" id="pwmBox" hidden>
+    <h2>手动 PWM（松手 0.2s 自动归零）</h2>
+    <div class="row">
+      <label>占空</label>
+      <input type="range" id="pwmSlider" min="-60" max="60" step="1" value="0">
+      <span class="val" id="pwmVal">0</span>
+    </div>
+    <div class="hint">仅用于验证电机方向与接线：<code>+</code> 正转、<code>-</code> 反转。松开滑块自动回 0。</div>
+  </div>
+
+  <div class="card">
+    <h2>位置目标（位置环，50ms）</h2>
+    <div class="btns">
+      <button class="ghost" id="btnMinus">−532</button>
+      <button class="ghost" id="btnPlus">+532</button>
+    </div>
+    <div class="btns" style="margin-top:8px">
+      <button class="ghost" id="btnLocZero">位置清零</button>
+      <button class="ghost" id="btnStream">波形 100/500Hz</button>
+    </div>
+    <div class="hint" id="hintBox">正在等待链路数据…</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+ *  与 FPGA 完全一致的二进制协议，浏览器端实现
+ *  帧: AA 55 | TYPE | LEN | PAYLOAD[LEN] | CRC16_H | CRC16_L
+ *  CRC16-CCITT-FALSE  poly=0x1021 init=0xFFFF  覆盖 TYPE..PAYLOAD
+ * ============================================================ */
+const T_TELEM = 0x81, T_PONG = 0x82, T_ACK = 0x83;
+const CMD = {
+  SET_MODE:0x01, SET_ANGLE:0x02, SET_LOC:0x03, SET_PWM:0x04,
+  SET_STREAM:0x07, PING:0x08, CLEAR_FAULT:0x09, HEARTBEAT:0x0A,
+  STEP:0x0B, START:0x0C, ESTOP:0x0D
+};
+
+function crc16(buf, from, to){
+  let c = 0xFFFF;
+  for(let i=from;i<to;i++){
+    c ^= buf[i] << 8;
+    for(let b=0;b<8;b++) c = (c & 0x8000) ? ((c<<1) ^ 0x1021) & 0xFFFF : (c<<1) & 0xFFFF;
+  }
+  return c & 0xFFFF;
+}
+function buildFrame(type, payload){
+  const n = payload ? payload.length : 0;
+  const f = new Uint8Array(2 + 2 + n + 2);
+  f[0]=0xAA; f[1]=0x55; f[2]=type; f[3]=n;
+  if(n) f.set(payload, 4);
+  const c = crc16(f, 2, 4+n);
+  f[4+n] = (c>>8)&0xFF; f[5+n] = c&0xFF;
+  return f;
+}
+const i16 = v => [ (v>>8)&0xFF, v&0xFF ];
+
+/* ============================================================
+ *  WebSocket + 流式帧解析
+ * ============================================================ */
+const el = id => document.getElementById(id);
+let ws = null, connected = false, retry = 0;
+const rx = {buf:new Uint8Array(0)};
+
+function wsUrl(){
+  const p = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  return p + location.host + '/ws';
+}
+function setConn(state, text){
+  el('connDot').className = 'dot' + (state==='on'?' on':state==='wait'?' wait':'');
+  el('connTxt').textContent = text;
+}
+function connect(){
+  setConn('wait','连接中…');
+  try { ws = new WebSocket(wsUrl()); } catch(e){ setTimeout(connect,1500); return; }
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => {
+    connected = true; retry = 0;
+    setConn('on','已连接');
+    sendCmd(CMD.SET_STREAM, [1]);        // 默认 100Hz
+    el('hintBox').textContent = '链路已建立，可开始控制。';
+  };
+  ws.onclose = () => {
+    connected = false;
+    setConn('','已断开，重连中…');
+    el('connDot').className = 'dot wait';
+    const d = Math.min(4000, 400 * Math.pow(1.6, retry++));
+    setTimeout(connect, d);
+  };
+  ws.onerror = () => {};
+  ws.onmessage = ev => {
+    if(typeof ev.data === 'string') return handleText(ev.data);
+    pushBytes(new Uint8Array(ev.data));
+  };
+}
+function handleText(s){
+  try{
+    const m = JSON.parse(s);
+    if(m.t === 'pong'){ rtt = performance.now() - m.n; el('sRtt').textContent = rtt.toFixed(0); }
+    else if(m.t === 'voice'){
+      const map = {start:1, hold:2, manual:3, stop:0};
+      if(map[m.cmd] !== undefined){ currentMode = map[m.cmd]; setModeUI(currentMode); }
+      el('hintBox').textContent = '语音指令：' + (m.text || m.cmd);
+    }
+  }catch(e){}
+}
+function wsSend(b){
+  if(ws && ws.readyState === 1) ws.send(b);
+}
+function sendCmd(cmd, bytes){
+  wsSend(buildFrame(cmd, bytes ? new Uint8Array(bytes) : new Uint8Array(0)));
+}
+
+/* ---------- 字节流 -> 帧 ---------- */
+function pushBytes(chunk){
+  const b = new Uint8Array(rx.buf.length + chunk.length);
+  b.set(rx.buf); b.set(chunk, rx.buf.length);
+  rx.buf = b;
+  for(;;){
+    if(rx.buf.length < 4) return;
+    let i = 0;
+    while(i+1 < rx.buf.length && !(rx.buf[i]===0xAA && rx.buf[i+1]===0x55)) i++;
+    if(i){ rx.buf = rx.buf.subarray(i); }
+    if(rx.buf.length < 4) return;
+    const len = rx.buf[3];
+    if(len > 64){ rx.buf = rx.buf.subarray(2); continue; }
+    const total = 4 + len + 2;
+    if(rx.buf.length < total) return;
+    const c = crc16(rx.buf, 2, 4+len);
+    const got = (rx.buf[4+len]<<8) | rx.buf[5+len];
+    if(c === got){
+      onFrame(rx.buf[2], rx.buf.subarray(4, 4+len));
+      rx.buf = rx.buf.subarray(total);
+    } else {
+      rx.buf = rx.buf.subarray(1);      // 错帧，滑动一字节重新同步
+    }
+  }
+}
+
+/* ============================================================
+ *  遥测与绘图
+ * ============================================================ */
+const hist = [];              // {t, angle, target, pwm, ...}
+const MAXPTS = 6000;
+const WIN = 10;               // 秒
+let paused = false, lastSeq = -1, drops = 0, fpsCount = 0, fpsT = 0, rtt = 0;
+let lastTelemetry = 0, fault = false, runFlag = false, linkOk = false;
+
+const STATE_NAME = ['停止','判断','脉冲1','等待1','脉冲2','等待2','平衡'];
+function onFrame(type, p){
+  if(type === T_TELEM && p.length >= 20){
+    const dv = new DataView(p.buffer, p.byteOffset, p.byteLength);
+    const s = {
+      t: performance.now()/1000,
+      seq: p[0], state: p[1], flags: p[2], rate: p[3],
+      angle: dv.getInt16(4), target: dv.getInt16(6), pwm: dv.getInt16(8),
+      enc1: dv.getUint16(10), enc2: dv.getUint16(12),
+      speed: dv.getInt16(14), loc: dv.getInt16(16), loct: dv.getInt16(18)
+    };
+    lastTelemetry = s.t;
+    runFlag = !!(s.flags & 1); fault = !!(s.flags & 2);
+    linkOk  = !!(s.flags & 4);
+    if(lastSeq >= 0){
+      const d = (s.seq - lastSeq + 256) & 0xFF;
+      if(d > 1) drops += d - 1;
+    }
+    lastSeq = s.seq;
+    if(!paused){
+      hist.push(s);
+      if(hist.length > MAXPTS) hist.splice(0, hist.length - MAXPTS);
+    }
+    fpsCount++;
+    updateStats(s);
+  }
+  else if(type === T_PONG && p.length >= 5){
+    // 只用于链路探活
+  }
+  else if(type === T_ACK && p.length >= 2){
+    if(p[1] !== 0) el('hintBox').textContent = '指令被拒绝，错误码 ' + p[1] + '（1=CRC 2=长度 3=未知指令）';
+  }
+}
+
+function updateStats(s){
+  el('sAngle').textContent = s.angle;
+  el('sTarget').textContent = s.target;
+  el('sPwm').textContent = (s.pwm>0?'+':'') + s.pwm;
+  el('sState').textContent = STATE_NAME[s.state] || ('#'+s.state);
+  el('sSpeed').textContent = s.speed;
+  el('sLoc').textContent = s.loc;
+  el('sDrop').textContent = drops;
+}
+
+/* ---------- Canvas ---------- */
+const cv = el('plot'), ctx = cv.getContext('2d');
+let CW = 0, CH = 0, DPR = 1;
+function resize(){
+  const r = cv.getBoundingClientRect();
+  DPR = Math.min(devicePixelRatio || 1, 2.5);
+  CW = r.width; CH = r.height;
+  cv.width = Math.round(CW * DPR); cv.height = Math.round(CH * DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+addEventListener('resize', () => { resize(); });
+
+function niceRange(lo, hi){
+  lo = Math.floor(lo/100)*100; hi = Math.ceil(hi/100)*100;
+  if(hi - lo < 300){ const m=(hi+lo)/2; lo=m-150; hi=m+150; }
+  return [lo, hi];
+}
+
+function draw(){
+  const now = performance.now()/1000;
+  const t0 = now - WIN;
+  ctx.clearRect(0,0,CW,CH);
+
+  const padL = 38, padR = 34, padT = 8, padB = 16;
+  const w = CW - padL - padR, h = CH - padT - padB;
+
+  // 取窗口内数据，计算 y 轴
+  let lo = 4095, hi = 0;
+  for(let i=hist.length-1;i>=0;i--){
+    const s = hist[i]; if(s.t < t0) break;
+    lo = Math.min(lo, s.angle, s.target); hi = Math.max(hi, s.angle, s.target);
+  }
+  if(lo > hi){ lo = 1400; hi = 2300; }
+  const [yLo, yHi] = niceRange(lo - 40, hi + 40);
+  const X = t => padL + (t - t0) / WIN * w;
+  const Y = v => padT + h - (v - yLo) / (yHi - yLo) * h;
+  const YP = v => padT + h - (v + 100) / 200 * h;   // PWM 右轴 -100..100
+
+  // 安全窗口
+  ctx.fillStyle = 'rgba(42,58,77,.35)';
+  ctx.fillRect(padL, Y(2356), w, Y(1356)-Y(2356));
+
+  // 网格
+  ctx.strokeStyle = '#1a2531'; ctx.lineWidth = 1;
+  for(let i=0;i<=10;i++){
+    const x = padL + w*i/10;
+    ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT+h); ctx.stroke();
+  }
+  for(let i=0;i<=4;i++){
+    const y = padT + h*i/4;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL+w, y); ctx.stroke();
+  }
+
+  // 坐标文字
+  ctx.fillStyle = '#7d8fa3'; ctx.font = '10px ui-monospace,monospace';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for(let i=0;i<=4;i++){
+    const v = yHi - (yHi-yLo)*i/4;
+    ctx.fillText(Math.round(v), padL-4, padT + h*i/4);
+  }
+  ctx.textAlign = 'left';
+  for(let i=0;i<=2;i++){
+    const v = 100 - 100*i;
+    ctx.fillText((v>0?'+':'')+v, padL+w+4, padT + h*i/2);
+  }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('−10s', padL+14, padT+h+3);
+  ctx.fillText('现在', padL+w-16, padT+h+3);
+
+  // 安全窗口上下限
+  ctx.strokeStyle = 'rgba(120,150,180,.35)'; ctx.setLineDash([2,4]);
+  [1356,2356].forEach(v=>{ ctx.beginPath(); ctx.moveTo(padL,Y(v)); ctx.lineTo(padL+w,Y(v)); ctx.stroke(); });
+  ctx.setLineDash([]);
+
+  const start = Math.max(0, hist.findIndex(s => s.t >= t0));
+  const n = hist.length;
+  if(n - start < 2) return;
+
+  // 目标
+  ctx.strokeStyle = '#4da3ff'; ctx.lineWidth = 1.6; ctx.setLineDash([5,4]);
+  ctx.beginPath();
+  for(let i=start;i<n;i++){ const s=hist[i]; const x=X(s.t), y=Y(s.target);
+    i===start?ctx.moveTo(x,y):ctx.lineTo(x,y); }
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // 角度
+  ctx.strokeStyle = '#35c98a'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for(let i=start;i<n;i++){ const s=hist[i]; const x=X(s.t), y=Y(s.angle);
+    i===start?ctx.moveTo(x,y):ctx.lineTo(x,y); }
+  ctx.stroke();
+
+  // PWM
+  ctx.strokeStyle = 'rgba(255,159,67,.85)'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  for(let i=start;i<n;i++){ const s=hist[i]; const x=X(s.t), y=YP(s.pwm);
+    i===start?ctx.moveTo(x,y):ctx.lineTo(x,y); }
+  ctx.stroke();
+
+  // 最新点
+  const last = hist[n-1];
+  ctx.fillStyle = '#35c98a';
+  ctx.beginPath(); ctx.arc(X(last.t), Y(last.angle), 3, 0, 7); ctx.fill();
+}
+
+let lastFrame = 0;
+function loop(ts){
+  if(ts - lastFrame > 33){ lastFrame = ts; draw(); }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- 定时任务：心跳 / 探活 / 速率显示 / 失联提示 ---------- */
+setInterval(() => {
+  if(!connected) return;
+  sendCmd(CMD.HEARTBEAT, [0]);
+  const n = Math.round(performance.now());
+  if(ws && ws.readyState===1) ws.send(JSON.stringify({t:'ping', n:n}));
+}, 500);
+
+setInterval(() => {
+  const now = performance.now()/1000;
+  el('fpsBadge').textContent = fpsCount + ' fps';
+  fpsCount = 0;
+  if(lastTelemetry && now - lastTelemetry > 1.5 && connected){
+    el('hintBox').textContent = '已连接但 1.5s 没收到遥测：检查 FPGA 是否烧录了 PID_Link，或串口波特率是否一致（1Mbps）。';
+  }
+}, 1000);
+
+/* ============================================================
+ *  UI 绑定
+ * ============================================================ */
+function setModeUI(mode){
+  [...el('modeSeg').children].forEach(b => b.classList.toggle('on', +b.dataset.mode === mode));
+  el('holdBox').hidden = (mode !== 2);
+  el('pwmBox').hidden = (mode !== 3);
+  if(mode === 3) el('hintBox').textContent = '手动模式：拖动滑块给占空比，松手自动归零。';
+}
+let currentMode = 1;
+
+el('btnStart').onclick = () => { sendCmd(CMD.START, []); setModeUI(1); currentMode = 1;
+  el('hintBox').textContent = '已下发启动（自动起摆）。若摆杆不动，先确认角度在 1356~2356 内。'; };
+el('btnStop').onclick = () => { sendCmd(CMD.ESTOP, []); sendCmd(CMD.SET_PWM, i16(0)); setModeUI(0); currentMode = 0;
+  el('hintBox').textContent = '已急停，电机输出为 0。'; };
+
+[...el('modeSeg').children].forEach(b => {
+  b.onclick = () => {
+    const m = +b.dataset.mode;
+    currentMode = m;
+    sendCmd(CMD.SET_MODE, [m]);
+    setModeUI(m);
+    if(m === 2) sendCmd(CMD.SET_ANGLE, i16(+el('angleSlider').value));
+  };
+});
+
+el('angleSlider').oninput = e => {
+  el('angleVal').textContent = e.target.value;
+  if(currentMode === 2) sendCmd(CMD.SET_ANGLE, i16(+e.target.value));
+};
+el('btnAngleCenter').onclick = () => {
+  el('angleSlider').value = 1856; el('angleVal').textContent = 1856;
+  sendCmd(CMD.SET_ANGLE, i16(1856));
+};
+el('btnAngleApply').onclick = () => {
+  sendCmd(CMD.SET_ANGLE, i16(+el('angleSlider').value));
+  el('hintBox').textContent = '角度目标已下发：' + el('angleSlider').value;
+};
+
+el('pwmSlider').oninput = e => {
+  el('pwmVal').textContent = e.target.value;
+  sendCmd(CMD.SET_PWM, i16(+e.target.value));
+};
+el('pwmSlider').onchange = () => {
+  el('pwmSlider').value = 0; el('pwmVal').textContent = '0';
+  sendCmd(CMD.SET_PWM, i16(0));
+};
+
+el('btnPlus').onclick  = () => sendCmd(CMD.STEP, i16(+532));
+el('btnMinus').onclick = () => sendCmd(CMD.STEP, i16(-532));
+el('btnLocZero').onclick = () => { sendCmd(CMD.SET_LOC, i16(0)); el('hintBox').textContent = '位置目标已清零。'; };
+
+let rateSel = 1;
+el('btnStream').onclick = () => {
+  rateSel = rateSel === 1 ? 2 : 1;
+  sendCmd(CMD.SET_STREAM, [rateSel]);
+  el('btnStream').textContent = '波形 ' + (rateSel===1?'100':'500') + 'Hz';
+  paused = false; hist.length = 0; drops = 0; lastSeq = -1;
+};
+
+// 手动 PWM 持续刷新（FPGA 端 200ms 不刷新会归零）
+setInterval(() => {
+  if(currentMode === 3){
+    const v = +el('pwmSlider').value;
+    if(v !== 0) sendCmd(CMD.SET_PWM, i16(v));
+  }
+}, 100);
+
+// 双击画布暂停/继续
+cv.addEventListener('dblclick', () => {
+  paused = !paused;
+  el('hintBox').textContent = paused ? '波形已暂停（数据仍在后台接收）' : '波形已继续';
+});
+
+resize();
+requestAnimationFrame(loop);
+connect();
+setModeUI(1);
+</script>
+</body>
+</html>

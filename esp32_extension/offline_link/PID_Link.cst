@@ -1,0 +1,91 @@
+//Copyright (C)2014-2026 Gowin Semiconductor Corporation.
+//File Title: Physical Constraints file
+//Device: GW2A-55
+//Package: PG484
+
+//==================== 时钟与复位 ====================
+IO_LOC "clk_50m" M19;
+IO_PORT "clk_50m" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+IO_LOC "rst_n" AB3; // SW5 复位按键（低有效）
+IO_PORT "rst_n" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+//==================== LED ====================
+// LED1：U18，Bank 3 1.5V，高电平点亮
+IO_LOC "led_run" U18;
+IO_PORT "led_run" IO_TYPE=LVCMOS15 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=1.5;
+
+//==================== 按键 (SW1 ~ SW4) ====================
+IO_LOC "key_sw[0]" T18; // SW1：启动/停止
+IO_PORT "key_sw[0]" IO_TYPE=LVCMOS15 PULL_MODE=UP BANK_VCCIO=1.5;
+
+IO_LOC "key_sw[1]" R18; // SW2：位置目标 +532
+IO_PORT "key_sw[1]" IO_TYPE=LVCMOS15 PULL_MODE=UP BANK_VCCIO=1.5;
+
+IO_LOC "key_sw[2]" U20; // SW3：触发串口发送
+IO_PORT "key_sw[2]" IO_TYPE=LVCMOS15 PULL_MODE=UP BANK_VCCIO=1.5;
+
+IO_LOC "key_sw[3]" T20; // SW4：位置目标 -532（T20 为 SSPI 复用引脚）
+IO_PORT "key_sw[3]" IO_TYPE=LVCMOS15 PULL_MODE=UP BANK_VCCIO=1.5;
+
+//==================== 串口（右侧扩展排针，接 ESP32） ====================
+// F20/F21 = IOR16A/B，Bank 2 3.3V；K20/L20 只连板载 CH340，未引出。
+IO_LOC "uart_rx" F20;   // FPGA 收  <- ESP32 GPIO18(TX)
+IO_PORT "uart_rx" IO_TYPE = LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC "uart_tx" F21;   // FPGA 发  -> ESP32 GPIO17(RX)
+IO_PORT "uart_tx" IO_TYPE = LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+//==================== ADC 采集 (3PA1030) ====================
+IO_LOC "adc_clk" G18;
+IO_PORT "adc_clk" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC "adc_oe_n" H20;
+IO_PORT "adc_oe_n" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC "adc_data_in[9]" E19;
+IO_PORT "adc_data_in[9]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC "adc_data_in[8]" G17;
+IO_PORT "adc_data_in[8]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC "adc_data_in[7]" G19;
+IO_PORT "adc_data_in[7]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC "adc_data_in[6]" H19;
+IO_PORT "adc_data_in[6]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC "adc_data_in[5]" H18;
+IO_PORT "adc_data_in[5]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC "adc_data_in[4]" D19;
+IO_PORT "adc_data_in[4]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC "adc_data_in[3]" J19;
+IO_PORT "adc_data_in[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC "adc_data_in[2]" J20;
+IO_PORT "adc_data_in[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC "adc_data_in[1]" M21;
+IO_PORT "adc_data_in[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC "adc_data_in[0]" L21;
+IO_PORT "adc_data_in[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// ADC STBY 在模块内部固定为低，未连接 FPGA
+
+//==================== 编码器 ====================
+IO_LOC "enc1_a" Y20;
+IO_PORT "enc1_a" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC "enc1_b" AA20;
+IO_PORT "enc1_b" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+IO_LOC "enc2_a" W18;
+IO_PORT "enc2_a" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC "enc2_b" W17;
+IO_PORT "enc2_b" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+//==================== 电机驱动 (TB6612) ====================
+IO_LOC "PWMA" Y18;
+IO_PORT "PWMA" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "AN1" Y17;
+IO_PORT "AN1" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "AN2" Y19;
+IO_PORT "AN2" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC "PWMB" V14;
+IO_PORT "PWMB" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "BN1" AA17;
+IO_PORT "BN1" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "BN2" V15;
+IO_PORT "BN2" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
